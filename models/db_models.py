@@ -32,6 +32,10 @@ class User(Base):
         "Achievement",
         back_populates="user"
     )
+    daily_tasks: Mapped[list["UserDailyTask"]] = relationship(
+        "UserDailyTask",
+        back_populates="user"
+    )
 
 
 class GroupSettings(Base):
@@ -45,6 +49,7 @@ class GroupSettings(Base):
 
 
 class TaskSubmission(Base):
+    """Legacy table kept for history — new flow uses UserDailyTask."""
     __tablename__ = "task_submissions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -61,6 +66,48 @@ class TaskSubmission(Base):
         "User",
         back_populates="tasks"
     )
+
+
+# ─────────────────────────────────────
+# NEW: Per-day named tasks (1–6 slots)
+# ─────────────────────────────────────
+
+class UserDailyTask(Base):
+    """Stores each named task a user sets for a day (up to 6 slots)."""
+    __tablename__ = "user_daily_tasks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "group_id", "date", "slot", name="uix_daily_task_slot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    group_id: Mapped[int] = mapped_column(BigInteger)
+    date: Mapped[date] = mapped_column(Date)
+    slot: Mapped[int] = mapped_column(Integer)          # 1–6
+    task_name: Mapped[str] = mapped_column(Text)
+    is_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    points_awarded: Mapped[int] = mapped_column(Integer, default=0)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="daily_tasks")
+
+
+# ─────────────────────────────────────
+# NEW: Skip token (once per week)
+# ─────────────────────────────────────
+
+class SkipRecord(Base):
+    """Tracks usage of the weekly skip token per user per group."""
+    __tablename__ = "skip_records"
+    __table_args__ = (
+        UniqueConstraint("user_id", "group_id", "week_start", name="uix_skip_week"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    group_id: Mapped[int] = mapped_column(BigInteger)
+    week_start: Mapped[date] = mapped_column(Date)   # Monday of the week
+    skip_date: Mapped[date] = mapped_column(Date)    # Actual day that was skipped
 
 
 class Streak(Base):
@@ -124,12 +171,11 @@ class AuditLog(Base):
 
 
 # =========================
-# DATABASE ENGINE (FIXED)
+# DATABASE ENGINE
 # =========================
 
 DATABASE_URL = settings.database_url
 
-# convert Railway URL → asyncpg format (safe)
 if DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace(
         "postgresql://",
