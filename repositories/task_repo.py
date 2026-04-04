@@ -212,7 +212,8 @@ class UserTaskLockRepo(BaseRepo):
     async def is_locked(
         self, user_id: int, group_id: int, today: date_type
     ) -> bool:
-        """Return True if the user has already finalised tasks today."""        result = await self.session.execute(
+        """Return True if the user has already finalised tasks today."""
+        result = await self.session.execute(
             select(UserTaskLock).where(
                 UserTaskLock.user_id == user_id,
                 UserTaskLock.group_id == group_id,
