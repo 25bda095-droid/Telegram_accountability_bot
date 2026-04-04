@@ -10,7 +10,7 @@ from aiogram.types import (
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from repositories.task_repo import DailyTaskRepo, SkipRepo
+from repositories.task_repo import DailyTaskRepo, SkipRepo, UserTaskLockRepo
 from repositories.streak_repo import StreakRepo
 from repositories.user_repo import UserRepo
 from services import leaderboard_service
@@ -80,7 +80,7 @@ def task_slots_keyboard(tasks: list, skip_available: bool = True) -> InlineKeybo
             InlineKeyboardButton(text="⏭️ Skip Today (1×/week)", callback_data="grp_skip")
         )
     bottom.append(
-        InlineKeyboardButton(text="✔️ Done Setting Tasks", callback_data="grp_main_menu")
+        InlineKeyboardButton(text="✔️ Done Setting Tasks", callback_data="grp_finalize_tasks")
     )
     buttons.append(bottom)
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -156,6 +156,49 @@ async def grp_main_menu_cb(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+
+
+# ─────────────────────────────────────
+# GROUP: FINALISE TASKS FOR TODAY
+# ─────────────────────────────────────
+
+@router.callback_query(F.data == "grp_finalize_tasks")
+async def grp_finalize_tasks(callback: CallbackQuery, user, session, state: FSMContext):
+    """Lock the user's task list for today. Called from 'Done Setting Tasks' button."""
+    await state.clear()
+    group_id = callback.message.chat.id
+    today = datetime.now(timezone.utc).date()
+
+    daily_task_repo = DailyTaskRepo(session)
+    tasks = await daily_task_repo.get_today_tasks(user.id, group_id)
+
+    if not tasks:
+        # Nothing set yet — don't lock, just warn
+        await callback.answer(
+            "⚠️ Add at least one task before finalising!",
+            show_alert=True,
+        )
+        return
+
+    lock_repo = UserTaskLockRepo(session)
+    await lock_repo.lock_tasks(user.id, group_id, today)
+
+    n_tasks = len(tasks)
+    await callback.message.answer(
+        f"🔒 <b>Tasks Locked for Today!</b>
+
+"
+        f"You've set <b>{n_tasks}</b> task{'s' if n_tasks > 1 else ''} for today.
+"
+        f"Use <b>Update Task</b> to mark them done and earn points!
+
+"
+        f"<i>No more tasks can be added today.</i>",
+        parse_mode="HTML",
+        reply_markup=group_main_menu(),
+    )
+    await callback.answer()
+
 # ─────────────────────────────────────
 # GROUP: SUBMIT YOUR TASK
 # ─────────────────────────────────────
@@ -167,6 +210,27 @@ async def grp_submit(callback: CallbackQuery, user, session):
 
     daily_task_repo = DailyTaskRepo(session)
     tasks = await daily_task_repo.get_today_tasks(user.id, group_id)
+
+    # FIX: Block if user already finalised tasks today (tapped Done Setting Tasks)
+    lock_repo = UserTaskLockRepo(session)
+    if await lock_repo.is_locked(user.id, group_id, today):
+        await callback.answer(
+            "⛔ You already finalised your tasks for today!
+"
+            "Tasks can only be set once per day.",
+            show_alert=True,
+        )
+        return
+
+    # FIX: Safety net — block if any task is already marked done (exploit prevention)
+    if any(t.is_done for t in tasks):
+        await callback.answer(
+            "⛔ You have already started completing tasks today!
+"
+            "No new tasks can be added once you begin.",
+            show_alert=True,
+        )
+        return
 
     # All 6 slots already filled — no more adding
     if len(tasks) >= MAX_SLOTS:
