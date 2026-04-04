@@ -1,6 +1,6 @@
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from db import AsyncSessionLocal
+from models.db_models import AsyncSessionLocal
 from repositories.user_repo import UserRepo
 
 class AuthMiddleware(BaseMiddleware):
