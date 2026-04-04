@@ -1,6 +1,6 @@
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.db_models import User, UserDailyTask
+from models.db_models import User
 from .base_repo import BaseRepo
 
 
@@ -58,18 +58,7 @@ class UserRepo(BaseRepo):
         )
 
     async def get_top_n(self, group_id: int, n: int = 10) -> list[User]:
-        # FIX: Only return users who have activity in this specific group.
-        # Previously group_id was accepted but never used, mixing all groups together.
-        group_user_ids = (
-            select(UserDailyTask.user_id)
-            .where(UserDailyTask.group_id == group_id)
-            .distinct()
-            .scalar_subquery()
-        )
         result = await self.session.execute(
-            select(User)
-            .where(User.id.in_(group_user_ids))
-            .order_by(User.total_points.desc())
-            .limit(n)
+            select(User).order_by(User.total_points.desc()).limit(n)
         )
         return result.scalars().all()
