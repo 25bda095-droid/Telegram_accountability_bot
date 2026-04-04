@@ -1,0 +1,13 @@
+version: '3.9'
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data      # SQLite persistence
+      - ./logs:/app/logs      # Log persistence
+    healthcheck:
+      test: ["CMD", "python", "-c", "import bot"]
+      interval: 30s
+      retries: 3
