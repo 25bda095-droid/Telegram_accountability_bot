@@ -6,7 +6,9 @@ from scheduler.jobs import (
     job_close_task_window,
     job_check_broken_streaks,
     job_weekly_summary,
+    job_daily_leaderboard,
 )
+
 
 def create_scheduler(bot, session_factory) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="UTC")
@@ -34,6 +36,12 @@ def create_scheduler(bot, session_factory) -> AsyncIOScheduler:
         CronTrigger(day_of_week="mon", hour=0, minute=5),
         kwargs={"bot": bot, "session_factory": session_factory},
         id="weekly_summary", replace_existing=True,
+    )
+    scheduler.add_job(
+        job_daily_leaderboard,
+        CronTrigger(hour=21, minute=0),
+        kwargs={"bot": bot, "session_factory": session_factory},
+        id="daily_leaderboard", replace_existing=True,
     )
 
     return scheduler
