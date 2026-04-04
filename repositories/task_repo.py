@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, date as date_type
 from sqlalchemy import select, update, and_
-from models.db_models import TaskSubmission, UserDailyTask, SkipRecord
+from models.db_models import TaskSubmission, UserDailyTask, SkipRecord, UserTaskLock
 from .base_repo import BaseRepo
 
 
@@ -200,3 +200,34 @@ class SkipRepo(BaseRepo):
         self.session.add(record)
         await self.session.flush()
         return record
+
+
+# ─────────────────────────────────────
+# NEW: Task lock repo (once per day)
+# ─────────────────────────────────────
+
+class UserTaskLockRepo(BaseRepo):
+    """Creates and checks the daily task lock."""
+
+    async def is_locked(
+        self, user_id: int, group_id: int, today: date_type
+    ) -> bool:
+        """Return True if the user has already finalised tasks today."""        result = await self.session.execute(
+            select(UserTaskLock).where(
+                UserTaskLock.user_id == user_id,
+                UserTaskLock.group_id == group_id,
+                UserTaskLock.date == today,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def lock_tasks(
+        self, user_id: int, group_id: int, today: date_type
+    ) -> None:
+        """Create the lock row. Safe to call even if already locked (upsert)."""
+        already = await self.is_locked(user_id, group_id, today)
+        if already:
+            return
+        record = UserTaskLock(user_id=user_id, group_id=group_id, date=today)
+        self.session.add(record)
+        await self.session.flush()
