@@ -4,6 +4,7 @@ from repositories.user_repo import UserRepo
 from repositories.streak_repo import StreakRepo
 from repositories.snapshot_repo import SnapshotRepo
 
+
 async def get_leaderboard(session, group_id: int, limit: int = 10) -> list[dict]:
     cache_key = f"lb:{group_id}"
     cached = leaderboard_cache.get(cache_key)
@@ -22,12 +23,14 @@ async def get_leaderboard(session, group_id: int, limit: int = 10) -> list[dict]
         leaderboard.append({
             "rank": idx,
             "user_id": user.id,
+            "username": user.username,        # FIX: added so handler can show @username
             "full_name": user.full_name,
             "points": user.total_points,
             "streak": streak,
         })
     leaderboard_cache.set(cache_key, leaderboard, ttl=300)
     return leaderboard
+
 
 async def take_daily_snapshot(session, group_id: int):
     user_repo = UserRepo(session)
@@ -43,6 +46,7 @@ async def take_daily_snapshot(session, group_id: int):
         rankings.append({
             "rank": idx,
             "user_id": user.id,
+            "username": user.username,        # FIX: added for consistency
             "full_name": user.full_name,
             "points": user.total_points,
             "streak": streak,
