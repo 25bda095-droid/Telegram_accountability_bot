@@ -24,8 +24,8 @@ class TaskRepo(BaseRepo):
 
     async def get_today_submission(self, user_id: int, group_id: int) -> TaskSubmission | None:
         today = datetime.now(timezone.utc).date()
-        start = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
-        end = datetime.combine(today, datetime.max.time(), tzinfo=timezone.utc)
+        start = datetime.combine(today, datetime.min.time())
+        end = datetime.combine(today, datetime.max.time())
         result = await self.session.execute(
             select(TaskSubmission)
             .where(
@@ -39,8 +39,8 @@ class TaskRepo(BaseRepo):
 
     async def count_today_submissions(self, group_id: int) -> int:
         today = datetime.now(timezone.utc).date()
-        start = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
-        end = datetime.combine(today, datetime.max.time(), tzinfo=timezone.utc)
+        start = datetime.combine(today, datetime.min.time())
+        end = datetime.combine(today, datetime.max.time())
         result = await self.session.execute(
             select(TaskSubmission)
             .where(
@@ -141,7 +141,7 @@ class DailyTaskRepo(BaseRepo):
             return task
         task.is_done = True
         task.points_awarded = points
-        task.completed_at = datetime.now(timezone.utc)
+        task.completed_at = datetime.utcnow()
         await self.session.flush()
         return task
 
