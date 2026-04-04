@@ -49,14 +49,17 @@ async def main():
     dp.include_router(group_handler.router)
 
     # Global error handler — catches any unhandled exception from any handler
+    # FIX: aiogram 3 passes a single ErrorEvent; exception is event.exception
     @dp.errors()
-    async def global_error_handler(event, exception):
+    async def global_error_handler(event):
+        exception = event.exception
+        update = event.update
         logging.error(f"Unhandled exception: {exception}", exc_info=True)
         try:
-            if hasattr(event, "message") and event.message:
-                await event.message.answer("Something went wrong. Please try again.")
-            elif hasattr(event, "callback_query") and event.callback_query:
-                await event.callback_query.answer("Something went wrong.", show_alert=True)
+            if update.callback_query:
+                await update.callback_query.answer("Something went wrong.", show_alert=True)
+            elif update.message:
+                await update.message.answer("Something went wrong. Please try again.")
         except Exception:
             pass
         # Do NOT re-raise — prevents the update from being retried infinitely
