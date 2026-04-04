@@ -92,6 +92,26 @@ class UserDailyTask(Base):
     user: Mapped["User"] = relationship("User", back_populates="daily_tasks")
 
 
+
+
+# ─────────────────────────────────────
+# NEW: Task lock (once per day — set when user taps 'Done Setting Tasks')
+# ─────────────────────────────────────
+
+class UserTaskLock(Base):
+    """Marks that a user has finalised their task list for the day.
+    Once this row exists, no new task slots can be added for that date."""
+    __tablename__ = "user_task_locks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "group_id", "date", name="uix_task_lock_day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    group_id: Mapped[int] = mapped_column(BigInteger)
+    date: Mapped[date] = mapped_column(Date)
+    locked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 # ─────────────────────────────────────
 # NEW: Skip token (once per week)
 # ─────────────────────────────────────
