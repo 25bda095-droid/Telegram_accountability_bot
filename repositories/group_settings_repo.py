@@ -2,6 +2,7 @@ from sqlalchemy import select, update
 from models.db_models import GroupSettings
 from .base_repo import BaseRepo
 
+
 class GroupSettingsRepo(BaseRepo):
     async def get(self, group_id: int) -> GroupSettings | None:
         result = await self.session.execute(
@@ -26,3 +27,10 @@ class GroupSettingsRepo(BaseRepo):
             .where(GroupSettings.group_id == group_id)
             .values(is_active=active)
         )
+
+    async def get_all_active(self) -> list[GroupSettings]:
+        """Return all groups where is_active = True. Used by all scheduler jobs."""
+        result = await self.session.execute(
+            select(GroupSettings).where(GroupSettings.is_active == True)
+        )
+        return result.scalars().all()
