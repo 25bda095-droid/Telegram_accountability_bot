@@ -50,6 +50,7 @@ async def cmd_help(message: Message):
 @router.callback_query()
 async def handle_buttons(callback: CallbackQuery):
 
+    # ✅ SUBMIT (NO MENU HERE)
     if callback.data == "submit":
         await callback.message.answer(
             "📸 <b>Submit Your Task</b>\n\n"
@@ -60,6 +61,10 @@ async def handle_buttons(callback: CallbackQuery):
             parse_mode="HTML"
         )
 
+        await callback.answer()
+        return   # 🚨 IMPORTANT: stop here (no menu)
+
+    # ✅ OTHER BUTTONS (MENU OK)
     elif callback.data == "leaderboard":
         await callback.message.answer(
             "🏆 <b>Leaderboard</b>\n\nLoading...",
@@ -78,7 +83,7 @@ async def handle_buttons(callback: CallbackQuery):
             parse_mode="HTML"
         )
 
-    # 🔁 Show menu again after every action
+    # 🔁 Show menu only for non-submit actions
     await callback.message.answer(
         "👇 What next?",
         reply_markup=main_menu()
